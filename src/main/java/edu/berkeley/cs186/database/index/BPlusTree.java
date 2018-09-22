@@ -156,7 +156,15 @@ public class BPlusTree {
      */
     public Optional<RecordId> get(DataBox key) {
       typecheck(key);
-      throw new UnsupportedOperationException("TODO(hw2): implement.");
+      LeafNode leaf = root.get(key);
+      int i = 0;
+      for (DataBox k : leaf.getKeys()) {
+          if (k.equals(key)) {
+              return Optional.of(leaf.getRids().get(i));
+          }
+          i ++;
+      }
+      return Optional.empty();
     }
 
     /**
@@ -204,8 +212,7 @@ public class BPlusTree {
      * memory will receive 0 points.
      */
     public Iterator<RecordId> scanAll() {
-      throw new UnsupportedOperationException("TODO(hw2): implement.");
-      // TODO(hw2): Return a BPlusTreeIterator.
+      return new BPlusTreeIterator();
     }
 
     /**
@@ -234,8 +241,7 @@ public class BPlusTree {
      */
     public Iterator<RecordId> scanGreaterEqual(DataBox key) {
       typecheck(key);
-      throw new UnsupportedOperationException("TODO(hw2): implement.");
-      // TODO(hw2): Return a BPlusTreeIterator.
+      return new BPlusTreeGreatEqualIterator(key);
     }
 
     /**
@@ -250,7 +256,19 @@ public class BPlusTree {
      */
     public void put(DataBox key, RecordId rid) throws BPlusTreeException {
       typecheck(key);
-      throw new UnsupportedOperationException("TODO(hw2): implement.");
+        Optional<Pair<DataBox, Integer>> pNewRoot = root.put(key, rid);
+        if (pNewRoot.isPresent()) {
+            List<DataBox> keys = new ArrayList<>();
+            List<Integer> children = new ArrayList<>();
+
+            keys.add(pNewRoot.get().getFirst());
+            children.add(root.getPage().getPageNum());
+            children.add(pNewRoot.get().getSecond());
+
+            root = new InnerNode(metadata, keys, children);
+            headerPage = root.getPage();
+            writeHeader(headerPage.getByteBuffer());
+        }
     }
 
     /**
@@ -269,7 +287,19 @@ public class BPlusTree {
      * bulkLoad (see comments in BPlusNode.bulkLoad).
      */
     public void bulkLoad(Iterator<Pair<DataBox, RecordId>> data, float fillFactor) throws BPlusTreeException {
-      throw new UnsupportedOperationException("TODO(hw2): implement.");
+        Optional<Pair<DataBox, Integer>> pNewRoot = root.bulkLoad(data, fillFactor);
+        if (pNewRoot.isPresent()) {
+            List<DataBox> keys = new ArrayList<>();
+            List<Integer> children = new ArrayList<>();
+
+            keys.add(pNewRoot.get().getFirst());
+            children.add(root.getPage().getPageNum());
+            children.add(pNewRoot.get().getSecond());
+
+            root = new InnerNode(metadata, keys, children);
+            headerPage = root.getPage();
+            writeHeader(headerPage.getByteBuffer());
+        }
     }
 
     /**
@@ -286,7 +316,7 @@ public class BPlusTree {
      */
     public void remove(DataBox key) {
       typecheck(key);
-      throw new UnsupportedOperationException("TODO(hw2): implement.");
+      root.remove(key);
     }
 
     // Helpers /////////////////////////////////////////////////////////////////
@@ -352,16 +382,99 @@ public class BPlusTree {
 
     // Iterator ////////////////////////////////////////////////////////////////
     private class BPlusTreeIterator implements Iterator<RecordId> {
-      // TODO(hw2): Add whatever fields and constructors you want here.
+      LeafNode ptr;
+      int count;
+
+      BPlusTreeIterator() {
+          ptr = root.getLeftmostLeaf();
+          count = 0;
+      }
 
       @Override
       public boolean hasNext() {
-        throw new UnsupportedOperationException("TODO(hw2): implement.");
+          if (count == ptr.getRids().size()) {
+              // if already at the end of one leaf, check next
+              if (!ptr.getRightSibling().isPresent()) {
+                  return false;
+              }
+              ptr = ptr.getRightSibling().get();
+              if (ptr.getRids().size() == 0) {
+                  return false;
+              }
+              count = 0;
+              return true;
+          }
+          // if still in the middle of a leaf
+          return true;
       }
 
       @Override
       public RecordId next() {
-        throw new UnsupportedOperationException("TODO(hw2): implement.");
+          RecordId toReturn = ptr.getRids().get(count);
+          count ++;
+          return toReturn;
       }
+    }
+
+    private class BPlusTreeIterator2 implements Iterator<DataBox> {
+        LeafNode ptr;
+        int count;
+
+        BPlusTreeIterator2() {
+            ptr = root.getLeftmostLeaf();
+            count = 0;
+        }
+
+        @Override
+        public boolean hasNext() {
+            if (count == ptr.getKeys().size()) {
+                // if already at the end of one leaf, check next
+                if (!ptr.getRightSibling().isPresent()) {
+                    return false;
+                }
+                ptr = ptr.getRightSibling().get();
+                if (ptr.getKeys().size() == 0) {
+                    return false;
+                }
+                count = 0;
+                return true;
+            }
+            // if still in the middle of a leaf
+            return true;
+        }
+
+        @Override
+        public DataBox next() {
+            DataBox toReturn = ptr.getKeys().get(count);
+            count ++;
+            return toReturn;
+        }
+    }
+
+    private class BPlusTreeGreatEqualIterator implements Iterator<RecordId> {
+        DataBox KeytoReturn;
+        BPlusTreeIterator2 BTI;
+        DataBox key;
+
+        BPlusTreeGreatEqualIterator(DataBox key) {
+            this.key = key;
+            BTI = new BPlusTreeIterator2();
+        }
+
+        @Override
+        public boolean hasNext() {
+            while (BTI.hasNext()) {
+                KeytoReturn = BTI.next();
+                if (KeytoReturn.compareTo(key) >= 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public RecordId next() {
+            return get(KeytoReturn).get();
+        }
     }
 }
