@@ -300,6 +300,9 @@ public class BPlusTree {
             headerPage = root.getPage();
             writeHeader(headerPage.getByteBuffer());
         }
+        if (data.hasNext()) {
+            bulkLoad(data, fillFactor);
+        }
     }
 
     /**

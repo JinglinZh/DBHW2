@@ -153,18 +153,21 @@ class InnerNode extends BPlusNode {
                   j ++;
               }
 
+          if (j == keys.size()) {
+              index = j;
+          }
           keys.add(index, key2);
           children.add(index + 1, p);
           //split
           List<DataBox> newKeys = new ArrayList<>();
           List<Integer> newChildren = new ArrayList<>();
-          int m = keys.size()/2 + 1;
-          while (keys.size() > metadata.getOrder()) {
-              newKeys.add(keys.remove(m));
+          int m = metadata.getOrder();
+          while (keys.size() > m + 1) {
+              newKeys.add(keys.remove(m + 1));
           }
-          DataBox newKey = keys.remove(m - 1);
-          while (children.size() > metadata.getOrder() + 1) {
-              newChildren.add(children.remove(m));
+          DataBox newKey = keys.remove(m);
+          while (children.size() > m + 1) {
+              newChildren.add(children.remove(m + 1));
           }
 
           int pageNum = metadata.getAllocator().allocPage();
@@ -209,7 +212,7 @@ class InnerNode extends BPlusNode {
           }
 
           //bulkload the rightmost child
-          getChild(children.size() - 1).bulkLoad(data, fillFactor);
+          //getChild(children.size() - 1).bulkLoad(data, fillFactor);
       }
 
       sync();
@@ -221,7 +224,7 @@ class InnerNode extends BPlusNode {
   public void remove(DataBox key) {
       int i = 0;
       BPlusNode child = getChild(0);
-      if (key.compareTo(keys.get(keys.size() - 1)) > 0) {
+      if (key.compareTo(keys.get(keys.size() - 1)) >= 0) {
           child = getChild(keys.size());
       } else {
           for (DataBox k : keys) {

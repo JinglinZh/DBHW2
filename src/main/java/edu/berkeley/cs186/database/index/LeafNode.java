@@ -149,7 +149,7 @@ class LeafNode extends BPlusNode {
       int index = 0;
       for (DataBox k : keys) {
           if (key.equals(k)) {
-              throw new UnsupportedOperationException("Duplicate key");
+              throw new BPlusTreeException("Duplicate key");
           }
           if (key.compareTo(k) < 0) {
               index = i;
@@ -198,7 +198,7 @@ class LeafNode extends BPlusNode {
     //put things to the tail
       //check if full
       while (data.hasNext()) {
-          if (keys.size() >= Math.ceil(2*fillFactor*metadata.getOrder())) {
+          if (keys.size() >= Math.ceil(2 * fillFactor*metadata.getOrder())) {
               List<DataBox> newKeys = new ArrayList<>();
               List<RecordId> newRids = new ArrayList<>();
 
@@ -272,6 +272,7 @@ class LeafNode extends BPlusNode {
     }
 
     int pageNum = rightSibling.get();
+    //System.out.println(pageNum);
     return Optional.of(LeafNode.fromBytes(metadata, pageNum));
   }
 
@@ -419,6 +420,9 @@ class LeafNode extends BPlusNode {
     for (int i = 0; i < n; ++i) {
       keys.add(DataBox.fromBytes(buf, metadata.getKeySchema()));
       rids.add(RecordId.fromBytes(buf));
+    }
+    if (rightSibling < 0) {
+        return new LeafNode(metadata, pageNum, keys, rids, Optional.empty());
     }
     return new LeafNode(metadata, pageNum, keys, rids, Optional.of(rightSibling));
   }
